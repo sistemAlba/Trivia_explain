@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trivia</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif}
+html,body{background:#000;color:#fff;width:100%;height:100%;overflow:hidden}
+.screen{width:100%;height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px;overflow:hidden}
+.hidden{display:none!important}
+.card{width:100%;max-width:540px;border:1px solid rgba(255,255,255,.18);border-radius:22px;padding:24px;background:rgba(255,255,255,.06);box-shadow:0 0 45px rgba(0,180,255,.18)}
+h1{font-size:28px;margin-bottom:14px}p{font-size:16px;line-height:1.5;color:#cfcfcf;margin-bottom:18px}
+button{width:100%;border:none;border-radius:14px;padding:16px 18px;background:#00d084;color:#001b11;font-size:17px;font-weight:bold;cursor:pointer}
+.scan{background:radial-gradient(circle at center,#071b18 0%,#020404 48%,#000 100%)}
+.loader{width:90px;height:90px;border:6px solid rgba(255,255,255,.15);border-top-color:#00ff9d;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:28px}
+@keyframes spin{to{transform:rotate(360deg)}}.status{font-size:24px;font-weight:bold;margin-bottom:12px}.sub{color:#a6a6a6;font-size:15px;min-height:24px}
+.bar{width:100%;max-width:320px;height:10px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden;margin-top:30px}.progress{width:0%;height:100%;background:#00ff9d;animation:load 5s forwards}
+@keyframes load{0%{width:0}35%{width:38%}68%{width:74%}100%{width:100%}}
+.final{background:linear-gradient(180deg,#090909,#111);justify-content:center;overflow:hidden}
+.final-card{max-height:92dvh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 0 55px rgba(255,40,40,.16)}
+.final-header{flex:0 0 auto}.final-scroll{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:6px;margin-top:12px;overscroll-behavior:contain}
+.warning{font-size:44px;margin-bottom:10px}.final-card h2{font-size:23px;margin-bottom:12px;color:#ff4d4d}
+.panel{text-align:left;margin-top:14px;background:rgba(0,0,0,.35);padding:15px;border-radius:16px;border:1px solid rgba(255,255,255,.08)}
+.panel h3{font-size:16px;margin-bottom:10px;color:#00ff9d}.panel li{margin:9px 0 9px 20px;line-height:1.4;word-break:break-word}
+.data-grid{display:grid;grid-template-columns:1fr;gap:8px}.data-item{background:rgba(255,255,255,.06);padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.4;word-break:break-word}
+.label{display:block;color:#aaa;font-size:12px;margin-bottom:3px}.value{color:#fff;font-weight:bold}.danger{color:#ffcc00}.small{margin-top:14px;font-size:12px;color:#aaa;line-height:1.4}
+.final-scroll::-webkit-scrollbar{width:8px}.final-scroll::-webkit-scrollbar-track{background:rgba(255,255,255,.08);border-radius:10px}.final-scroll::-webkit-scrollbar-thumb{background:#00ff9d;border-radius:10px}
+@media(max-width:480px){.screen{padding:14px}.final-card{max-height:90dvh;padding:18px;border-radius:18px}.final-card h2{font-size:20px}.warning{font-size:38px}.panel{padding:13px}}
+</style>
+</head>
+<body>
+<section id="start" class="screen"><div class="card"><h1>Material de la conferencia</h1><p>Presiona el botón para abrir el contenido interactivo.</p><button onclick="startDemo()">Abrir contenido</button></div></section>
+<section id="scan" class="screen scan hidden"><div class="loader"></div><div class="status">Conectando...</div><div id="substatus" class="sub">Verificando dispositivo</div><div class="bar"><div class="progress"></div></div></section>
+<section id="final" class="screen final hidden"><div class="card final-card"><div class="final-header"><div class="warning">⚠️</div><h2>Acabas de escanear un QR sin verificarlo.</h2><p>No pasó nada malo. Esta fue una demostración.</p></div><div class="final-scroll"><p>Pero en un ataque real, un QR puede llevarte a una página falsa, pedirte datos, instalar software o robar tus credenciales.</p><div class="panel"><h3>Datos que esta página pudo ver sin pedir permisos</h3><div id="deviceInfo" class="data-grid"></div></div><div class="panel"><h3>Permiso de ubicación</h3><p class="danger">Este permiso sí requiere autorización del usuario. En esta demo se solicita solo para mostrar cómo una página puede pedir acceso.</p><div id="locationInfo" class="data-grid"></div></div><div class="panel"><h3>Antes de escanear un QR</h3><ol><li>Verifica quién colocó el QR.</li><li>Revisa la dirección del sitio antes de ingresar datos.</li><li>Desconfía de premios, urgencia o curiosidad excesiva.</li><li>No aceptes permisos si no entiendes para qué se usarán.</li></ol></div><div class="small">Esta demo solo guarda conteos agregados: total, Android, iPhone, otros, permisos permitidos y permisos bloqueados. No guarda ubicación, IP, nombre ni datos personales.</div></div></div></section>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import{getFirestore,doc,increment,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAC2VTntBI0jCNipyT-ScaH0lxhx9qu_Ec",
+  authDomain: "qr-ciberseguridad.firebaseapp.com",
+  projectId: "qr-ciberseguridad",
+  storageBucket: "qr-ciberseguridad.firebasestorage.app",
+  messagingSenderId: "821610427563",
+  appId: "1:821610427563:web:369fb001fb9f0e8e7c73ee",
+  measurementId: "G-HNDJ6TW0G2"
+};
+
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+let counted=false;
+let permissionCounted=false;
+let locationResult={estado:"No solicitado",detalle:"El navegador no ha respondido todavía."};
+const messages=["Verificando dispositivo","Solicitando permisos del navegador","Estableciendo conexión segura","Analizando origen del acceso","Leyendo información pública del navegador","Cargando contenido","Finalizando verificación"];
+
+function detectDeviceCategory(){
+  const ua=navigator.userAgent.toLowerCase();
+  if(ua.includes("iphone")||ua.includes("ipad")||ua.includes("ipod"))return"iphone";
+  if(ua.includes("android"))return"android";
+  return"otro";
+}
+async function registerVisit(){
+  if(counted)return;
+  counted=true;
+  const device=detectDeviceCategory();
+  const ref=doc(db,"qr_demo_stats","conference_totals");
+  const payload={total:increment(1),updatedAt:serverTimestamp()};
+  if(device==="android")payload.android=increment(1);
+  else if(device==="iphone")payload.iphone=increment(1);
+  else payload.otro=increment(1);
+  await setDoc(ref,payload,{merge:true});
+}
+
+async function registerPermission(granted){
+  if(permissionCounted)return;
+  permissionCounted=true;
+
+  const ref=doc(db,"qr_demo_stats","conference_totals");
+  const payload={updatedAt:serverTimestamp()};
+
+  if(granted){
+    payload.locationAllowed=increment(1);
+  }else{
+    payload.locationDenied=increment(1);
+  }
+
+  await setDoc(ref,payload,{merge:true});
+}
+function vibratePattern(){if("vibrate"in navigator)navigator.vibrate([180,90,180,90,300])}
+function requestFullscreen(){const el=document.documentElement;if(el.requestFullscreen)el.requestFullscreen().catch(()=>{})}
+function requestLocationPermission(){
+  if(!("geolocation"in navigator)){locationResult={estado:"No disponible",detalle:"Este navegador no soporta geolocalización."};return}
+  navigator.geolocation.getCurrentPosition(
+    p=>{registerPermission(true).catch(()=>{});locationResult={estado:"Permitido",detalle:`Latitud: ${p.coords.latitude.toFixed(6)}, Longitud: ${p.coords.longitude.toFixed(6)}, Precisión: ${Math.round(p.coords.accuracy)} metros`}},
+    e=>{registerPermission(false).catch(()=>{});let r="No se pudo obtener la ubicación.";if(e.code===e.PERMISSION_DENIED)r="El usuario bloqueó el permiso.";if(e.code===e.POSITION_UNAVAILABLE)r="La ubicación no está disponible.";if(e.code===e.TIMEOUT)r="La solicitud tardó demasiado.";locationResult={estado:"Bloqueado o no permitido",detalle:r}},
+    {enableHighAccuracy:false,timeout:5000,maximumAge:0}
+  );
+}
+function getBrowserName(){const ua=navigator.userAgent;if(ua.includes("Edg/"))return"Microsoft Edge";if(ua.includes("OPR/")||ua.includes("Opera"))return"Opera";if(ua.includes("Chrome")&&!ua.includes("Chromium"))return"Google Chrome";if(ua.includes("Safari")&&!ua.includes("Chrome"))return"Safari";if(ua.includes("Firefox"))return"Firefox";return"No identificado"}
+function getDeviceType(){const ua=navigator.userAgent.toLowerCase();if(/tablet|ipad|playbook|silk/.test(ua))return"Tablet";if(/mobile|iphone|android|ipod|blackberry|phone/.test(ua))return"Celular";return"Computadora"}
+function getOS(){const ua=navigator.userAgent;if(/Windows NT/.test(ua))return"Windows";if(/Android/.test(ua))return"Android";if(/iPhone|iPad|iPod/.test(ua))return"iOS / iPadOS";if(/Mac OS X/.test(ua))return"macOS";if(/Linux/.test(ua))return"Linux";return"No identificado"}
+function yesNo(v){return v?"Sí":"No"}
+function addInfo(id,label,value){const c=document.getElementById(id);const item=document.createElement("div");item.className="data-item";item.innerHTML=`<span class="label">${label}</span><span class="value">${value}</span>`;c.appendChild(item)}
+function showDeviceInfo(){
+  document.getElementById("deviceInfo").innerHTML="";
+  document.getElementById("locationInfo").innerHTML="";
+  const connection=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  addInfo("deviceInfo","Tipo de dispositivo",getDeviceType());
+  addInfo("deviceInfo","Sistema operativo aproximado",getOS());
+  addInfo("deviceInfo","Navegador aproximado",getBrowserName());
+  addInfo("deviceInfo","Idioma del navegador",navigator.language||"No disponible");
+  addInfo("deviceInfo","Resolución de pantalla",`${screen.width} x ${screen.height}`);
+  addInfo("deviceInfo","Zona horaria",Intl.DateTimeFormat().resolvedOptions().timeZone||"No disponible");
+  addInfo("deviceInfo","Fecha y hora local",new Date().toLocaleString());
+  addInfo("deviceInfo","Modo oscuro activo",yesNo(window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches));
+  addInfo("deviceInfo","Pantalla táctil probable",yesNo(("ontouchstart"in window)||navigator.maxTouchPoints>0));
+  addInfo("deviceInfo","Tipo de red aproximado",connection&&connection.effectiveType?connection.effectiveType:"No disponible");
+  addInfo("deviceInfo","User-Agent",navigator.userAgent);
+  addInfo("locationInfo","Estado del permiso",locationResult.estado);
+  addInfo("locationInfo","Resultado",locationResult.detalle);
+}
+window.startDemo=async function(){
+  requestFullscreen();
+  requestLocationPermission();
+  vibratePattern();
+  registerVisit().catch(()=>{});
+  document.getElementById("start").classList.add("hidden");
+  document.getElementById("scan").classList.remove("hidden");
+  let index=0;const substatus=document.getElementById("substatus");
+  const interval=setInterval(()=>{index++;if(index<messages.length){substatus.textContent=messages[index];vibratePattern()}else clearInterval(interval)},900);
+  setTimeout(()=>{document.getElementById("scan").classList.add("hidden");document.getElementById("final").classList.remove("hidden");vibratePattern();showDeviceInfo();setTimeout(showDeviceInfo,1500)},6500);
+}
+</script>
+</body>
+</html>

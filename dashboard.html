@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard QR</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif}
+body{background:#070707;color:#fff;min-height:100vh;padding:28px;display:flex;justify-content:center;align-items:center}
+.wrap{width:100%;max-width:900px}h1{font-size:34px;margin-bottom:8px}.sub{color:#aaa;margin-bottom:28px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:24px;box-shadow:0 0 35px rgba(0,255,157,.08)}
+.label{color:#aaa;font-size:14px;margin-bottom:10px}.number{font-size:44px;font-weight:bold;color:#00ff9d}.footer{margin-top:22px;color:#888;font-size:13px}
+@media(max-width:760px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:420px){.grid{grid-template-columns:1fr}h1{font-size:28px}}
+</style>
+</head>
+<body>
+<main class="wrap">
+<h1>Dashboard de accesos QR</h1>
+<p class="sub">Conteo agregado. No muestra datos personales.</p>
+<section class="grid">
+<div class="card"><div class="label">Total</div><div id="total" class="number">0</div></div>
+<div class="card"><div class="label">Android</div><div id="android" class="number">0</div></div>
+<div class="card"><div class="label">iPhone / iPad</div><div id="iphone" class="number">0</div></div>
+<div class="card"><div class="label">Otros</div><div id="otro" class="number">0</div></div>
+<div class="card"><div class="label">Ubicación permitida</div><div id="allowed" class="number">0</div></div>
+<div class="card"><div class="label">Ubicación bloqueada</div><div id="denied" class="number">0</div></div>
+</section>
+<p id="updated" class="footer">Esperando datos...</p>
+</main>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import{getFirestore,doc,onSnapshot}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAC2VTntBI0jCNipyT-ScaH0lxhx9qu_Ec",
+  authDomain: "qr-ciberseguridad.firebaseapp.com",
+  projectId: "qr-ciberseguridad",
+  storageBucket: "qr-ciberseguridad.firebasestorage.app",
+  messagingSenderId: "821610427563",
+  appId: "1:821610427563:web:369fb001fb9f0e8e7c73ee",
+  measurementId: "G-HNDJ6TW0G2"
+};
+
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+const ref=doc(db,"qr_demo_stats","conference_totals");
+
+onSnapshot(ref,snapshot=>{
+  const data=snapshot.data()||{};
+  document.getElementById("total").textContent=data.total||0;
+  document.getElementById("android").textContent=data.android||0;
+  document.getElementById("iphone").textContent=data.iphone||0;
+  document.getElementById("otro").textContent=data.otro||0;
+  document.getElementById("allowed").textContent=data.locationAllowed||0;
+  document.getElementById("denied").textContent=data.locationDenied||0;
+  if(data.updatedAt&&data.updatedAt.toDate){
+    document.getElementById("updated").textContent="Última actualización: "+data.updatedAt.toDate().toLocaleString();
+  }
+});
+</script>
+</body>
+</html>
